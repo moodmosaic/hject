@@ -2,175 +2,164 @@
 #include <stdio.h>
 
 HANDLE OpenVolume(
-	char cDriveLetter)
+    char cDriveLetter)
 {
-	char szRootName[5];
-	wsprintf(
-		szRootName,
-		TEXT("%c:\\"),
-		cDriveLetter);
+    char szRootName[5];
+    wsprintf(
+        szRootName,
+        TEXT("%c:\\"),
+        cDriveLetter);
 
-	DWORD dwAccessFlags;
+    DWORD dwAccessFlags;
 
-	UINT uDriveType =
-		GetDriveType(szRootName);
+    UINT uDriveType = GetDriveType(szRootName);
 
-	switch (uDriveType)
-	{
-	case DRIVE_REMOVABLE:
-		dwAccessFlags =
-			GENERIC_READ | GENERIC_WRITE;
-		break;
+    switch (uDriveType) {
+    case DRIVE_REMOVABLE:
+        dwAccessFlags = GENERIC_READ | GENERIC_WRITE;
+        break;
 
-	case DRIVE_CDROM:
-		dwAccessFlags =
-			GENERIC_READ;
-		break;
+    case DRIVE_CDROM:
+        dwAccessFlags = GENERIC_READ;
+        break;
 
-	default:
-		printf(
-			TEXT("Cannot eject. Drive type is incorrect.\n"));
-		return
-			INVALID_HANDLE_VALUE;
-	}
+    default:
+        printf(
+            TEXT("Cannot eject. Drive type is incorrect.\n"));
+        return INVALID_HANDLE_VALUE;
+    }
 
-	char szVolumeName[8];
+    char szVolumeName[8];
 
-	wsprintf(
-		szVolumeName,
-		TEXT("\\\\.\\%c:"),
-		cDriveLetter);
+    wsprintf(
+        szVolumeName,
+        TEXT("\\\\.\\%c:"),
+        cDriveLetter);
 
-	HANDLE hVolume;
-	hVolume =
-		CreateFile(
-			szVolumeName,
-			dwAccessFlags,
-			FILE_SHARE_READ | FILE_SHARE_WRITE,
-			NULL,
-			OPEN_EXISTING,
-			0,
-			NULL);
+    HANDLE hVolume;
+    hVolume = CreateFile(
+        szVolumeName,
+        dwAccessFlags,
+        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        NULL,
+        OPEN_EXISTING,
+        0,
+        NULL);
 
-	if (hVolume == INVALID_HANDLE_VALUE)
-		printf(
-			TEXT("Error %d: %s\n"),
-			GetLastError(),
-			TEXT("CreateFile"));
+    if (hVolume == INVALID_HANDLE_VALUE)
+        printf(
+            TEXT("Error %d: %s\n"),
+            GetLastError(),
+            TEXT("CreateFile"));
 
-	return hVolume;
+    return hVolume;
 }
 
 BOOL LockVolume(
-	HANDLE hVolume)
+    HANDLE hVolume)
 {
-	DWORD dwBytesReturned;
-	DWORD dwSleepAmount;
-	int nTryCount;
+    DWORD dwBytesReturned;
+    DWORD dwSleepAmount;
+    int nTryCount;
 
-	int nLockRetries = 20;
+    int nLockRetries = 20;
 
-	dwSleepAmount = 10000 / nLockRetries;
+    dwSleepAmount = 10000 / nLockRetries;
 
-	for (nTryCount = 0; nTryCount < nLockRetries; nTryCount++)
-	{
-		if (DeviceIoControl(
-			hVolume,
-			FSCTL_LOCK_VOLUME,
-			NULL, 0,
-			NULL, 0,
-			&dwBytesReturned,
-			NULL))
-			return TRUE;
+    for (nTryCount = 0; nTryCount < nLockRetries; nTryCount++) {
+        if (DeviceIoControl(
+                hVolume,
+                FSCTL_LOCK_VOLUME,
+                NULL, 0,
+                NULL, 0,
+                &dwBytesReturned,
+                NULL))
+            return TRUE;
 
-		Sleep(dwSleepAmount);
-	}
+        Sleep(dwSleepAmount);
+    }
 
-	return FALSE;
+    return FALSE;
 }
 
 BOOL DismountVolume(
-	HANDLE hVolume)
+    HANDLE hVolume)
 {
-	DWORD dwBytesReturned;
+    DWORD dwBytesReturned;
 
-	return DeviceIoControl(
-		hVolume,
-		FSCTL_DISMOUNT_VOLUME,
-		NULL, 0,
-		NULL, 0,
-		&dwBytesReturned,
-		NULL);
+    return DeviceIoControl(
+        hVolume,
+        FSCTL_DISMOUNT_VOLUME,
+        NULL, 0,
+        NULL, 0,
+        &dwBytesReturned,
+        NULL);
 }
 
 BOOL PreventRemovalOfVolume(
-	HANDLE hVolume,
-	BOOL fPreventRemoval)
+    HANDLE hVolume,
+    BOOL fPreventRemoval)
 {
-	DWORD dwBytesReturned;
-	PREVENT_MEDIA_REMOVAL PMRBuffer;
+    DWORD dwBytesReturned;
+    PREVENT_MEDIA_REMOVAL PMRBuffer;
 
-	PMRBuffer.PreventMediaRemoval = fPreventRemoval;
+    PMRBuffer.PreventMediaRemoval = fPreventRemoval;
 
-	return DeviceIoControl(
-		hVolume,
-		IOCTL_STORAGE_MEDIA_REMOVAL,
-		&PMRBuffer,
-		sizeof(PREVENT_MEDIA_REMOVAL),
-		NULL, 0,
-		&dwBytesReturned,
-		NULL);
+    return DeviceIoControl(
+        hVolume,
+        IOCTL_STORAGE_MEDIA_REMOVAL,
+        &PMRBuffer,
+        sizeof(PREVENT_MEDIA_REMOVAL),
+        NULL, 0,
+        &dwBytesReturned,
+        NULL);
 }
 
 BOOL AutoEjectVolume(
-	HANDLE hVolume)
+    HANDLE hVolume)
 {
-	DWORD dwBytesReturned;
+    DWORD dwBytesReturned;
 
-	return DeviceIoControl(
-		hVolume,
-		IOCTL_STORAGE_EJECT_MEDIA,
-		NULL, 0,
-		NULL, 0,
-		&dwBytesReturned,
-		NULL);
+    return DeviceIoControl(
+        hVolume,
+        IOCTL_STORAGE_EJECT_MEDIA,
+        NULL, 0,
+        NULL, 0,
+        &dwBytesReturned,
+        NULL);
 }
 
 BOOL EjectVolume(
-	char cDriveLetter)
+    char cDriveLetter)
 {
-	HANDLE hVolume =
-		OpenVolume(cDriveLetter);
-	if (hVolume == INVALID_HANDLE_VALUE)
-		return FALSE;
+    HANDLE hVolume = OpenVolume(cDriveLetter);
+    if (hVolume == INVALID_HANDLE_VALUE)
+        return FALSE;
 
-	BOOL fRemoveSafely = FALSE;
-	BOOL fAutoEject = FALSE;
+    BOOL fRemoveSafely = FALSE;
+    BOOL fAutoEject = FALSE;
 
-	if (LockVolume(hVolume) && DismountVolume(hVolume)) {
-		fRemoveSafely = TRUE;
+    if (LockVolume(hVolume) && DismountVolume(hVolume)) {
+        fRemoveSafely = TRUE;
 
-		if (PreventRemovalOfVolume(hVolume, FALSE) &&
-			AutoEjectVolume(hVolume))
-			fAutoEject = TRUE;
-	}
+        if (PreventRemovalOfVolume(hVolume, FALSE) && AutoEjectVolume(hVolume))
+            fAutoEject = TRUE;
+    }
 
-	if (!CloseHandle(hVolume))
-		return FALSE;
+    if (!CloseHandle(hVolume))
+        return FALSE;
 
-	if (fAutoEject)
-	{
-		printf(
-			"Media in Drive %c has been ejected safely.\n",
-			cDriveLetter);
-	}
-	else
-	{
-		if (fRemoveSafely)
-			printf(
-				"Media in Drive %c can be safely removed.\n",
-				cDriveLetter);
-	}
+    if (fAutoEject) {
+        printf(
+            "Media in Drive %c has been ejected safely.\n",
+            cDriveLetter);
+    }
+    else {
+        if (fRemoveSafely)
+            printf(
+                "Media in Drive %c can be safely removed.\n",
+                cDriveLetter);
+    }
 
-	return TRUE;
+    return TRUE;
 }
